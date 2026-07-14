@@ -1,6 +1,6 @@
 # shmoovy
 
-Definitely not groovy
+Definitely not groovy.
 
 A Discord music bot: search Spotify's catalog (or paste a Spotify/YouTube
 link) with `/play`, confirm the match, and it joins your voice channel and

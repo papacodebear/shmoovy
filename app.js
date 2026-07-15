@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import dns from 'node:dns';
 import express from 'express';
 import {
     InteractionType,
@@ -13,6 +14,12 @@ import { DiscordRequest } from './utils.js';
 import { resolveTrackFromQuery } from './providers/input.js';
 import { createPending, takePending } from './pendingConfirmations.js';
 import { getOrCreateQueue, getQueue } from './queue/guildQueue.js';
+
+// Discord's voice UDP handshake can fail inside a Docker bridge network if
+// Node resolves an IPv6 address the container can't actually route, leaving
+// the voice connection bouncing between "connecting" and "signalling"
+// instead of reaching "ready". Force IPv4 resolution to avoid that.
+dns.setDefaultResultOrder('ipv4first');
 
 let botReady = false;
 

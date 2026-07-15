@@ -33,6 +33,9 @@ export class GuildQueue {
             console.error(`[player error] guild ${this.guildId}:`, error);
             this._playNext();
         });
+        this.player.on('stateChange', (oldState, newState) => {
+            console.log(`[player] guild ${this.guildId}: ${oldState.status} -> ${newState.status}`);
+        });
     }
 
     async ensureConnected(voiceChannelId, adapterCreator) {
@@ -43,7 +46,13 @@ export class GuildQueue {
                 guildId: this.guildId,
                 adapterCreator,
             });
-            this.connection.subscribe(this.player);
+            this.connection.on('stateChange', (oldState, newState) => {
+                console.log(`[connection] guild ${this.guildId}: ${oldState.status} -> ${newState.status}`);
+            });
+            const subscription = this.connection.subscribe(this.player);
+            if (!subscription) {
+                console.error(`[queue] guild ${this.guildId}: failed to subscribe audio player to voice connection`);
+            }
             await entersState(this.connection, VoiceConnectionStatus.Ready, 10_000);
         }
         this._clearIdleTimer();

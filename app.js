@@ -61,6 +61,11 @@ async function handlePlayCommand({ data, member, guild_id, channel_id, token, re
         data: { flags: InteractionResponseFlags.EPHEMERAL },
     });
 
+    if (!query) {
+        await editOriginalResponse(token, { content: 'Give me a song name, artist, or a Spotify/YouTube link to search for.' });
+        return;
+    }
+
     try {
         const track = await resolveTrackFromQuery(query);
         if (!track) {

@@ -21,6 +21,9 @@ import { getOrCreateQueue, getQueue } from './queue/guildQueue.js';
 // instead of reaching "ready". Force IPv4 resolution to avoid that.
 dns.setDefaultResultOrder('ipv4first');
 
+const CONFIRM_TIMEOUT_MS = 60 * 1000;
+const QUEUED_CONFIRMATION_TIMEOUT_MS = 5 * 1000;
+
 let botReady = false;
 
 const client = new Client({
@@ -39,11 +42,28 @@ async function editOriginalResponse(token, body) {
     });
 }
 
+async function deleteOriginalResponse(token) {
+    return DiscordRequest(`webhooks/${process.env.APP_ID}/${token}/messages/@original`, {
+        method: 'DELETE',
+    });
+}
+
 async function announceNowPlaying(channelId, track) {
     await DiscordRequest(`channels/${channelId}/messages`, {
         method: 'POST',
         body: { content: `🎵 Now playing: **${track.title}** — ${track.artist}` },
     });
+}
+
+// takePending is a one-shot read, so this is a no-op if the user already
+// confirmed/cancelled - no need to track/cancel this timeout separately.
+async function expirePendingConfirmation(pendingId) {
+    const pending = takePending(pendingId);
+    if (!pending) return;
+    await editOriginalResponse(pending.token, {
+        content: `**${pending.track.title}** — ${pending.track.artist} (search expired, run /play again)`,
+        components: [],
+    }).catch((err) => console.error('[play] failed to expire confirmation:', err));
 }
 
 async function addTrackToQueue({ track, guildId, channelId, userId }) {
@@ -86,7 +106,9 @@ async function handlePlayCommand({ data, member, guild_id, channel_id, token, re
             guildId: guild_id,
             channelId: channel_id,
             userId: member.user.id,
+            token,
         });
+        setTimeout(() => expirePendingConfirmation(pendingId), CONFIRM_TIMEOUT_MS);
 
         await editOriginalResponse(token, {
             content: `**${track.title}** — ${track.artist} (only visible to you)`,
@@ -255,6 +277,13 @@ async function handleComponent({ data, token, res }) {
 
         try {
             await addTrackToQueue(pending);
+            // Just an acknowledgment once queued - dismiss it quickly rather
+            // than leaving it sitting there until the user closes it.
+            setTimeout(() => {
+                deleteOriginalResponse(token).catch((err) =>
+                    console.error('[play_confirm] failed to dismiss confirmation:', err)
+                );
+            }, QUEUED_CONFIRMATION_TIMEOUT_MS);
         } catch (err) {
             console.error('[play_confirm] error:', err);
             const message =

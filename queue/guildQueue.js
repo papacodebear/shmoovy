@@ -49,6 +49,11 @@ export class GuildQueue {
             });
             this.connection.on('stateChange', (oldState, newState) => {
                 console.log(`[connection] guild ${this.guildId}: ${oldState.status} -> ${newState.status}`);
+                // @discordjs/voice swallows the voice WebSocket's actual close
+                // code/reason internally (only used to decide whether to
+                // retry, never logged) - hook it directly to see why it's
+                // closing.
+                this._logNetworkingWsClose(newState.networking);
             });
             this.connection.on('debug', (message) => {
                 console.log(`[connection debug] guild ${this.guildId}: ${message}`);
@@ -60,6 +65,25 @@ export class GuildQueue {
             await entersState(this.connection, VoiceConnectionStatus.Ready, 10_000);
         }
         this._clearIdleTimer();
+    }
+
+    _logNetworkingWsClose(networking) {
+        if (!networking || this._loggedNetworking === networking) return;
+        this._loggedNetworking = networking;
+
+        const attach = (state) => {
+            const ws = state?.ws;
+            if (ws && !ws.__closeLogged) {
+                ws.__closeLogged = true;
+                ws.on('close', (event) => {
+                    console.log(
+                        `[voice ws close] guild ${this.guildId}: code=${event?.code} reason=${event?.reason}`
+                    );
+                });
+            }
+        };
+        attach(networking.state);
+        networking.on('stateChange', (_old, newState) => attach(newState));
     }
 
     enqueue(track) {

@@ -45,9 +45,13 @@ export class GuildQueue {
                 channelId: voiceChannelId,
                 guildId: this.guildId,
                 adapterCreator,
+                debug: true,
             });
             this.connection.on('stateChange', (oldState, newState) => {
                 console.log(`[connection] guild ${this.guildId}: ${oldState.status} -> ${newState.status}`);
+            });
+            this.connection.on('debug', (message) => {
+                console.log(`[connection debug] guild ${this.guildId}: ${message}`);
             });
             const subscription = this.connection.subscribe(this.player);
             if (!subscription) {

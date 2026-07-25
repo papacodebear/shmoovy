@@ -3,6 +3,7 @@ import { promisify } from 'node:util';
 
 const execFileAsync = promisify(execFile);
 const YTDLP_PATH = process.env.YTDLP_PATH || 'yt-dlp';
+const YTDLP_TIMEOUT_MS = 20 * 1000;
 
 // Resolves a Spotify track (no youtubeVideoId yet) to a playable YouTube
 // video via yt-dlp's own search, reusing yt-dlp rather than adding a
@@ -14,7 +15,7 @@ export async function resolveToYoutube(track) {
     const { stdout } = await execFileAsync(
         YTDLP_PATH,
         ['-J', '--no-warnings', '--skip-download', query],
-        { maxBuffer: 10 * 1024 * 1024 }
+        { maxBuffer: 10 * 1024 * 1024, timeout: YTDLP_TIMEOUT_MS }
     );
     const data = JSON.parse(stdout);
     const entry = data.entries?.[0] ?? data;
